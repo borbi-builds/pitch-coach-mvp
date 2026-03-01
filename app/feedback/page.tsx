@@ -1,95 +1,66 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import FeedbackSection from '@/components/FeedbackSection'
 import { RotateCcw, Share2, Eye } from 'lucide-react'
-
-interface FeedbackData {
-  overallScore: number
-  deliveryScore: number
-  argumentScore: number
-  slidesScore: number
-  delivery: {
-    wellDone: string[]
-    needsWork: string[]
-    actionItems: string[]
-  }
-  argument: {
-    wellDone: string[]
-    needsWork: string[]
-    actionItems: string[]
-  }
-  slides: {
-    wellDone: string[]
-    needsWork: string[]
-    actionItems: string[]
-  }
-}
+import type { FeedbackData } from '@/lib/store'
 
 export default function FeedbackPage() {
   const router = useRouter()
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
+  const [feedbackData, setFeedbackData] = useState<FeedbackData | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [recordingDate, setRecordingDate] = useState('Unknown')
+  const [recordingDuration, setRecordingDuration] = useState('00:00')
 
-  // Mock feedback data - in production this comes from analysis API
-  const feedbackData: FeedbackData = {
-    overallScore: 71,
-    deliveryScore: 68,
-    argumentScore: 74,
-    slidesScore: 71,
-    delivery: {
-      wellDone: [
-        'Strong eye contact (92% of video)',
-        'Confident pace (2.1 words/second)',
-        'Varied intonation (4 tonal ranges detected)',
-      ],
-      needsWork: [
-        'Filler words: "um" (7x) + "like" (3x)',
-        'Body movement: Minimal (3 gestures in 4:32, ideal is 8-12)',
-        'Facial expression: Neutral 40% of the time',
-      ],
-      actionItems: [
-        'Replace "um" with pauses',
-        'Practice with exaggerated hand gestures',
-        'Smile when discussing your passion',
-      ],
-    },
-    argument: {
-      wellDone: [
-        'Thesis stated clearly at 0:52',
-        'Problem → Solution → Evidence structure is logical',
-        'Uses 2 credible data points',
-      ],
-      needsWork: [
-        'Thesis not reinforced until minute 3:45',
-        '"Why now" argument is weak',
-        'Emotional connection is weak',
-      ],
-      actionItems: [
-        'Restate thesis at 2:00-2:30',
-        'Add regulatory or market trend data to "why now"',
-        'Add 30-second personal origin story',
-      ],
-    },
-    slides: {
-      wellDone: [
-        'Consistent color scheme (navy + white)',
-        'All text readable from 20 feet',
-        'Good visual balance (hero images on 4 slides)',
-      ],
-      needsWork: [
-        'Slide 3: 8 bullet points (recommend max 4)',
-        'Slide 8: Chart labels too small (8pt, need 14pt+)',
-        '3 text-only slides without visuals',
-      ],
-      actionItems: [
-        'Edit Slide 3: Keep only top 3-4 bullets',
-        'Edit Slide 8: Increase chart labels 8pt → 14pt+',
-        'Add visuals to 3 text-heavy slides',
-      ],
-    },
-  }
+  useEffect(() => {
+    // Load feedback from session/local storage or API
+    const loadFeedback = async () => {
+      try {
+        // Try to get from session storage first
+        const storedFeedback = sessionStorage.getItem('feedbackData')
+        if (storedFeedback) {
+          setFeedbackData(JSON.parse(storedFeedback))
+          
+          const date = sessionStorage.getItem('recordingDate') || new Date().toLocaleDateString()
+          setRecordingDate(date)
+          
+          const duration = sessionStorage.getItem('recordingDuration') || '00:00'
+          setRecordingDuration(duration)
+          
+          setIsLoading(false)
+          return
+        }
+
+        // Otherwise, try API
+        const recordingId = sessionStorage.getItem('videoId')
+        if (!recordingId) {
+          router.push('/')
+          return
+        }
+
+        const response = await fetch(`/api/analyze?recordingId=${recordingId}`)
+        if (!response.ok) throw new Error('Failed to load feedback')
+
+        const data = await response.json()
+        setFeedbackData(data.feedback)
+        setRecordingDate(new Date().toLocaleDateString())
+        
+        const durationSecs = parseInt(sessionStorage.getItem('duration') || '0')
+        const mins = Math.floor(durationSecs / 60)
+        const secs = durationSecs % 60
+        setRecordingDuration(`${mins}:${secs.toString().padStart(2, '0')}`)
+      } catch (error) {
+        console.error('Failed to load feedback:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadFeedback()
+  }, [router])
 
   const getScoreColor = (score: number) => {
     if (score >= 75) return 'text-green-600'
@@ -104,6 +75,8 @@ export default function FeedbackPage() {
   }
 
   const handleReRecord = () => {
+    // Clear feedback data and go back to recording
+    sessionStorage.removeItem('feedbackData')
     router.push('/record')
   }
 
@@ -117,6 +90,40 @@ export default function FeedbackPage() {
     alert('Video playback feature coming soon!')
   }
 
+  if (isLoading) {
+    return (
+      <main className="flex-1 flex flex-col">
+        <Header />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-slate-600">Loading your feedback...</p>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  if (!feedbackData) {
+    return (
+      <main className="flex-1 flex flex-col">
+        <Header />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="max-w-md text-center">
+            <p className="text-red-900 font-medium mb-4">Error</p>
+            <p className="text-red-800 mb-4">Could not load feedback data.</p>
+            <button
+              onClick={() => router.push('/')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Go Home
+            </button>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="flex-1 flex flex-col">
       <Header />
@@ -128,7 +135,7 @@ export default function FeedbackPage() {
               Your Pitch Feedback
             </h1>
             <p className="text-slate-600">
-              Recorded: Feb 28, 2026 • 4:32 (12 slides)
+              Recorded: {recordingDate} • {recordingDuration}
             </p>
           </div>
 
@@ -147,8 +154,11 @@ export default function FeedbackPage() {
               </span>
             </div>
             <p className="text-lg text-slate-700 mb-6">
-              Good foundation. You have strong delivery and logical argument structure. Focus on
-              reducing filler words and deepening your personal connection to the idea.
+              {feedbackData.overallScore >= 75
+                ? 'Excellent pitch! You have strong delivery, clear argument structure, and professional slides.'
+                : feedbackData.overallScore >= 60
+                  ? 'Good foundation. Focus on the action items to strengthen your pitch.'
+                  : 'Room for improvement. Work through the action items systematically.'}
             </p>
 
             {/* Score Breakdown */}

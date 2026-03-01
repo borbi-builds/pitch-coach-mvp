@@ -1,5 +1,9 @@
 import { ChevronDown } from 'lucide-react'
-import { useState } from 'react'
+
+export interface FeedbackItem {
+  title: string
+  desc: string
+}
 
 interface FeedbackSectionProps {
   title: string
@@ -7,8 +11,8 @@ interface FeedbackSectionProps {
   isExpanded: boolean
   onToggle: () => void
   content: {
-    wellDone: string[]
-    needsWork: string[]
+    wellDone: FeedbackItem[]
+    needsWork: FeedbackItem[]
     actionItems: string[]
   }
 }
@@ -51,12 +55,15 @@ export default function FeedbackSection({
         <div className="border-t border-slate-200 px-4 py-6 space-y-6">
           {/* What Went Well */}
           <div>
-            <h4 className="font-semibold text-slate-900 mb-3">What Went Well</h4>
-            <ul className="space-y-2">
+            <h4 className="font-semibold text-slate-900 mb-3">✓ What Went Well</h4>
+            <ul className="space-y-3">
               {content.wellDone.map((item, i) => (
                 <li key={i} className="flex gap-3 text-slate-700">
-                  <span className="text-green-600 font-bold">✓</span>
-                  <span>{item}</span>
+                  <span className="text-green-600 font-bold mt-0.5">✓</span>
+                  <div className="flex-1">
+                    <p className="font-semibold text-slate-900">{item.title}</p>
+                    <p className="text-sm text-slate-600 mt-1">{item.desc}</p>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -64,12 +71,15 @@ export default function FeedbackSection({
 
           {/* What Needs Work */}
           <div>
-            <h4 className="font-semibold text-slate-900 mb-3">What Needs Work</h4>
-            <ul className="space-y-2">
+            <h4 className="font-semibold text-slate-900 mb-3">⚠ What Needs Work</h4>
+            <ul className="space-y-3">
               {content.needsWork.map((item, i) => (
                 <li key={i} className="flex gap-3 text-slate-700">
-                  <span className="text-yellow-600 font-bold">⚠</span>
-                  <span>{item}</span>
+                  <span className="text-yellow-600 font-bold mt-0.5">⚠</span>
+                  <div className="flex-1">
+                    <p className="font-semibold text-slate-900">{item.title}</p>
+                    <p className="text-sm text-slate-600 mt-1">{item.desc}</p>
+                  </div>
                 </li>
               ))}
             </ul>

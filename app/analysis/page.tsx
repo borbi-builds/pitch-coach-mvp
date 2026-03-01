@@ -17,9 +17,9 @@ export default function AnalysisPage() {
   const router = useRouter()
   const [analyses, setAnalyses] = useState<Analysis[]>([
     {
-      name: 'Delivery Analysis',
-      status: 'running',
-      progress: 35,
+      name: 'Delivery Analysis (Video)',
+      status: 'pending',
+      progress: 0,
       description: 'Eye contact, gestures, pace, filler words',
       icon: <Clapperboard className="w-5 h-5" />,
     },
@@ -31,7 +31,7 @@ export default function AnalysisPage() {
       icon: <FileText className="w-5 h-5" />,
     },
     {
-      name: 'Slide Analysis',
+      name: 'Slide Analysis (Design)',
       status: 'pending',
       progress: 0,
       description: 'Design, readability, alignment',
@@ -40,66 +40,132 @@ export default function AnalysisPage() {
   ])
 
   const [duration, setDuration] = useState<string>('')
-  const [overallProgress, setOverallProgress] = useState(35)
+  const [overallProgress, setOverallProgress] = useState(0)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const dur = sessionStorage.getItem('duration')
     if (dur) setDuration(dur)
 
-    // Simulate analysis progress
-    const interval = setInterval(() => {
-      setAnalyses((prev) => {
-        const updated = [...prev]
-        let totalProgress = 0
+    const startAnalysis = async () => {
+      try {
+        // Get data from session storage
+        const videoId = sessionStorage.getItem('videoId')
+        const recordingId = sessionStorage.getItem('recordingId') || videoId || 'demo-recording'
 
-        // Update first analysis
-        if (updated[0].status === 'running') {
-          updated[0].progress = Math.min(updated[0].progress + Math.random() * 10, 100)
-          if (updated[0].progress >= 100) {
-            updated[0].status = 'complete'
-            updated[1].status = 'running'
-          }
+        // For MVP, we use mock video URLs
+        const videoUrl = `https://example.com/videos/${videoId}.webm`
+        const audioUrl = `https://example.com/audio/${videoId}.wav`
+        const slideUrls = [
+          'https://example.com/slides/1.png',
+          'https://example.com/slides/2.png',
+          'https://example.com/slides/3.png',
+        ]
+
+        // Update UI to show running
+        setAnalyses((prev) => {
+          const updated = [...prev]
+          updated[0].status = 'running'
+          updated[0].progress = 10
+          return updated
+        })
+
+        // Call the analysis API with all 4 engines in parallel
+        console.log('[ANALYSIS PAGE] Triggering analysis API')
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            recordingId,
+            videoUrl,
+            audioUrl,
+            slideUrls,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error(`Analysis failed: ${response.statusText}`)
         }
 
-        // Update second analysis
-        if (updated[1].status === 'running') {
-          updated[1].progress = Math.min(updated[1].progress + Math.random() * 8, 100)
-          if (updated[1].progress >= 100) {
-            updated[1].status = 'complete'
-            updated[2].status = 'running'
-          }
-        }
+        const data = await response.json()
+        console.log('[ANALYSIS PAGE] Received feedback:', data.feedback)
 
-        // Update third analysis
-        if (updated[2].status === 'running') {
-          updated[2].progress = Math.min(updated[2].progress + Math.random() * 8, 100)
-          if (updated[2].progress >= 100) {
-            updated[2].status = 'complete'
-          }
-        }
+        // Save feedback to session storage for feedback page
+        sessionStorage.setItem('feedbackData', JSON.stringify(data.feedback))
+        sessionStorage.setItem('recordingDate', new Date().toLocaleDateString())
 
-        // Calculate overall progress
-        totalProgress = updated.reduce((sum, a) => sum + a.progress, 0) / 3
+        // Animate progress bars
+        const progressInterval = setInterval(() => {
+          setAnalyses((prev) => {
+            const updated = [...prev]
+            let allComplete = true
 
-        setOverallProgress(Math.round(totalProgress))
+            updated.forEach((a, i) => {
+              if (a.progress < 100) {
+                a.progress = Math.min(a.progress + Math.random() * 25, 100)
+                if (a.progress >= 100) {
+                  a.status = 'complete'
+                  a.progress = 100
+                } else {
+                  a.status = 'running'
+                  allComplete = false
+                }
+              }
+            })
 
-        // If all complete, redirect to feedback
-        if (
-          updated[0].status === 'complete' &&
-          updated[1].status === 'complete' &&
-          updated[2].status === 'complete'
-        ) {
-          setTimeout(() => {
-            router.push('/feedback')
-          }, 1500)
-        }
+            // Calculate overall
+            const total = updated.reduce((sum, a) => sum + a.progress, 0) / 3
+            setOverallProgress(Math.round(total))
 
-        return updated
-      })
-    }, 400)
+            // Redirect when done
+            if (allComplete) {
+              clearInterval(progressInterval)
+              setTimeout(() => {
+                router.push('/feedback')
+              }, 1000)
+            }
 
-    return () => clearInterval(interval)
+            return updated
+          })
+        }, 300)
+      } catch (err) {
+        console.error('[ANALYSIS PAGE] Error:', err)
+        setError(err instanceof Error ? err.message : 'Analysis failed')
+        setAnalyses((prev) =>
+          prev.map((a) => ({
+            ...a,
+            status: 'pending' as const,
+            progress: 0,
+          }))
+        )
+      }
+    }
+
+    // Start analysis on mount
+    startAnalysis()
   }, [router])
+
+  if (error) {
+    return (
+      <main className="flex-1 flex flex-col">
+        <Header />
+        <div className="flex-1 flex items-center justify-center px-4 py-12">
+          <div className="max-w-2xl w-full">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+              <p className="text-red-900 font-medium mb-2">Analysis Error</p>
+              <p className="text-red-800 mb-4">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="flex-1 flex flex-col">
@@ -111,7 +177,10 @@ export default function AnalysisPage() {
               🎬 Analyzing Your Pitch
             </h2>
             <p className="text-slate-600 mb-4">
-              {duration && `Recording saved (${duration}s video)`}
+              {duration && `Recording: ${duration}s`}
+            </p>
+            <p className="text-sm text-slate-500">
+              Processing 4 analysis engines in parallel...
             </p>
           </div>
 
@@ -153,7 +222,9 @@ export default function AnalysisPage() {
                     className={`h-full rounded-full transition-all duration-300 ${
                       analysis.status === 'complete'
                         ? 'bg-green-600'
-                        : 'bg-blue-600'
+                        : analysis.status === 'running'
+                        ? 'bg-blue-600'
+                        : 'bg-slate-300'
                     }`}
                     style={{ width: `${analysis.progress}%` }}
                   ></div>
@@ -177,15 +248,14 @@ export default function AnalysisPage() {
                 ></div>
               </div>
               <p className="text-xs text-slate-500 mt-3">
-                ~{Math.max(0, 120 - Math.round(overallProgress * 1.2))} seconds remaining
+                {overallProgress === 100 ? 'Finalizing...' : `Processing...`}
               </p>
             </div>
           </div>
 
           <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-900">
-              💡 <strong>Tip:</strong> We're using AI to analyze your video, audio, and slides.
-              Results will be detailed and actionable.
+              💡 <strong>Analysis includes:</strong> Eye contact & gestures (video), transcription & pacing (audio), slide design metrics, argument structure & persuasion scoring.
             </p>
           </div>
         </div>

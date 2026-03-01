@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { AnalysisResults } from './analysis';
 
 export interface Recording {
   id: string;
@@ -8,17 +9,35 @@ export interface Recording {
   videoUrl: string;
   audioUrl: string;
   transcript?: string;
-  feedback?: {
-    overall: number;
-    delivery: number;
-    argument: number;
-    slides: number;
-    details?: {
-      delivery: unknown;
-      argument: unknown;
-      slides: unknown;
-    };
+  analysisResults?: AnalysisResults;
+  feedback?: FeedbackData;
+}
+
+export interface FeedbackData {
+  overallScore: number;
+  deliveryScore: number;
+  argumentScore: number;
+  slidesScore: number;
+  delivery: {
+    wellDone: FeedbackItem[];
+    needsWork: FeedbackItem[];
+    actionItems: string[];
   };
+  argument: {
+    wellDone: FeedbackItem[];
+    needsWork: FeedbackItem[];
+    actionItems: string[];
+  };
+  slides: {
+    wellDone: FeedbackItem[];
+    needsWork: FeedbackItem[];
+    actionItems: string[];
+  };
+}
+
+export interface FeedbackItem {
+  title: string;
+  desc: string;
 }
 
 interface PitchCoachStore {
@@ -48,8 +67,10 @@ interface PitchCoachStore {
   // Analysis state
   isAnalyzing: boolean;
   analysisProgress: number; // 0-100
+  analysisResults: AnalysisResults | null;
   setAnalyzing: (analyzing: boolean) => void;
   setAnalysisProgress: (progress: number) => void;
+  setAnalysisResults: (results: AnalysisResults | null) => void;
 
   // Recording history
   recordings: Recording[];
@@ -89,8 +110,10 @@ export const usePitchCoachStore = create<PitchCoachStore>((set) => ({
   // Analysis
   isAnalyzing: false,
   analysisProgress: 0,
+  analysisResults: null,
   setAnalyzing: (analyzing) => set({ isAnalyzing: analyzing }),
   setAnalysisProgress: (progress) => set({ analysisProgress: progress }),
+  setAnalysisResults: (results) => set({ analysisResults: results }),
 
   // Recording history
   recordings: [],

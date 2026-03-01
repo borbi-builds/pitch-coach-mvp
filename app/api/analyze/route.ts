@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { runCompleteAnalysis } from '@/lib/analysis';
+import { generateFeedback } from '@/lib/analysis/feedback-generator';
 
 // Initialize Supabase only if env vars are available
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -9,35 +11,26 @@ const supabase = supabaseUrl && supabaseKey
   ? createClient(supabaseUrl, supabaseKey)
   : null;
 
-// This is a placeholder endpoint for the analysis pipeline
-// In production, this would queue a job for:
-// 1. MediaPipe analysis (video frames)
-// 2. Deepgram transcription (audio)
-// 3. Claude argument analysis
-// 4. Slide OCR analysis
+// Week 2: Full analysis pipeline with 4 mock engines
+// 1. MediaPipe (video analysis)
+// 2. Deepgram (audio analysis)
+// 3. Vision (slide analysis)
+// 4. Claude (argument analysis)
 
 export async function POST(request: NextRequest) {
   try {
-    const { recordingId, videoUrl, duration, slideCount } = await request.json();
+    const { recordingId, videoUrl, audioUrl, slideUrls } = await request.json();
 
-    if (!recordingId || !videoUrl) {
+    if (!recordingId || !videoUrl || !audioUrl || !slideUrls) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: recordingId, videoUrl, audioUrl, slideUrls' },
         { status: 400 }
       );
     }
 
-    // Queue analysis job (stub for now)
-    // In production, this would:
-    // 1. Download video from Supabase
-    // 2. Process with MediaPipe
-    // 3. Call Deepgram API
-    // 4. Call Claude API
-    // 5. Save results to database
-
     const analysisId = `analysis-${recordingId}`;
 
-    // Update recording status (optional, if Supabase is configured)
+    // Update recording status
     if (supabase) {
       await supabase
         .from('recordings')
@@ -45,112 +38,57 @@ export async function POST(request: NextRequest) {
         .eq('id', recordingId);
     }
 
-    // Simulate analysis steps with mock data
-    // TODO: Replace with actual analysis pipeline
-    const mockFeedback = {
-      overall: 71,
-      delivery: {
-        score: 68,
-        metrics: {
-          eyeContact: 92,
-          pace: 2.1,
-          fillerWords: 10,
-          gestures: 3,
-          facialExpression: 60,
-        },
-        wellDone: [
-          {
-            title: 'Strong eye contact (92% of video)',
-            desc: 'You looked at the camera most of the time. This builds trust.',
-          },
-          {
-            title: 'Confident pace (2.1 words/second)',
-            desc: 'Ideal range is 2.0-2.5 words/sec. You\'re right in the sweet spot!',
-          },
-          {
-            title: 'Varied intonation',
-            desc: 'Your voice doesn\'t sound flat or monotone.',
-          },
-        ],
-        needsWork: [
-          {
-            title: 'Filler words: "um" (7x) + "like" (3x)',
-            desc: 'Try to cut in half. Practice pausing instead.',
-          },
-          {
-            title: 'Body movement: Minimal (3 gestures)',
-            desc: 'Add 1-2 purposeful gestures per minute.',
-          },
-          {
-            title: 'Facial expression: Neutral 40% of the time',
-            desc: 'Could show more emotion when discussing passion.',
-          },
-        ],
-      },
-      argument: {
-        score: 74,
-        wellDone: [
-          {
-            title: 'Thesis stated clearly at 0:52',
-            desc: 'Clear problem-solution statement.',
-          },
-          {
-            title: 'Strong evidence (2 data points)',
-            desc: 'Gartner report + customer case study.',
-          },
-        ],
-        needsWork: [
-          {
-            title: 'Thesis not reinforced',
-            desc: 'Repeat at 2:00-2:30 mark.',
-          },
-          {
-            title: '"Why now" argument weak',
-            desc: 'Add regulatory change or market data.',
-          },
-          {
-            title: 'No counterargument addressed',
-            desc: 'Address existing solutions.',
-          },
-        ],
-      },
-      slides: {
-        score: 71,
-        wellDone: [
-          {
-            title: 'Consistent color scheme',
-            desc: 'Good brand continuity.',
-          },
-        ],
-        needsWork: [
-          {
-            title: 'Slide 3: 8 bullet points',
-            desc: 'Reduce to 4 max.',
-          },
-          {
-            title: 'Chart labels too small',
-            desc: 'Increase from 8pt to 14pt+.',
-          },
-        ],
-      },
-    };
+    // Run all 4 analysis engines in parallel
+    // Each engine is mocked and returns deterministic results for MVP
+    console.log(`[ANALYSIS] Starting parallel analysis for ${analysisId}`);
+    const analysisResults = await runCompleteAnalysis(
+      videoUrl,
+      audioUrl,
+      slideUrls
+    );
 
-    // Save feedback to database (stub)
-    // In production: await supabase.from('feedback').insert([...])
+    console.log(`[ANALYSIS] Completed analysis engines:`, {
+      mediapipe: 'eye contact, gestures, movement',
+      deepgram: 'transcription, pacing, fillers',
+      slides: 'readability, density, consistency',
+      claude: 'argument structure, logic, persuasion',
+    });
+
+    // Generate structured feedback tied to research
+    const feedback = generateFeedback(analysisResults);
+
+    console.log(`[ANALYSIS] Generated feedback:`, {
+      overallScore: feedback.overallScore,
+      deliveryScore: feedback.deliveryScore,
+      argumentScore: feedback.argumentScore,
+      slidesScore: feedback.slidesScore,
+    });
+
+    // Save to database (if Supabase configured)
+    if (supabase) {
+      await supabase
+        .from('recordings')
+        .update({ 
+          status: 'analyzed',
+          feedback,
+          analysis_results: analysisResults,
+        })
+        .eq('id', recordingId);
+    }
 
     return NextResponse.json(
       {
         analysisId,
-        status: 'processing',
-        feedback: mockFeedback,
-        estimatedTime: 120,
+        status: 'complete',
+        feedback,
+        analysisResults,
       },
-      { status: 202 }
+      { status: 200 }
     );
   } catch (error) {
     console.error('Analysis handler error:', error);
     return NextResponse.json(
-      { error: 'Analysis failed' },
+      { error: error instanceof Error ? error.message : 'Analysis failed' },
       { status: 500 }
     );
   }
