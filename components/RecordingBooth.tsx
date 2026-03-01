@@ -109,14 +109,14 @@ export default function RecordingBooth({ sessionId }: RecordingBoothProps) {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const calculatePace = () => {
+  const calculatePace = (): number => {
     if (elapsedSeconds === 0) return 0
     const minutesElapsed = elapsedSeconds / 60
-    return (wordsCount / minutesElapsed).toFixed(2)
+    return parseFloat((wordsCount / minutesElapsed).toFixed(2))
   }
 
   const getPaceStatus = () => {
-    const pace = parseFloat(calculatePace())
+    const pace = calculatePace()
     if (pace >= 2.0 && pace <= 2.5) return 'Good'
     if (pace > 2.5) return 'Too fast'
     if (pace > 0 && pace < 2.0) return 'Too slow'

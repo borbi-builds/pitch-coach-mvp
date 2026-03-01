@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Initialize Supabase only if env vars are available
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = supabaseUrl && supabaseKey 
+  ? createClient(supabaseUrl, supabaseKey)
+  : null;
 
 // This is a placeholder endpoint for the analysis pipeline
 // In production, this would queue a job for:
@@ -34,11 +37,13 @@ export async function POST(request: NextRequest) {
 
     const analysisId = `analysis-${recordingId}`;
 
-    // Update recording status
-    await supabase
-      .from('recordings')
-      .update({ status: 'analyzing' })
-      .eq('id', recordingId);
+    // Update recording status (optional, if Supabase is configured)
+    if (supabase) {
+      await supabase
+        .from('recordings')
+        .update({ status: 'analyzing' })
+        .eq('id', recordingId);
+    }
 
     // Simulate analysis steps with mock data
     // TODO: Replace with actual analysis pipeline
@@ -162,7 +167,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch feedback from database
+    // For MVP without Supabase, return mock feedback
+    if (!supabase) {
+      return NextResponse.json({
+        recordingId,
+        status: 'complete',
+        feedback: {
+          overall: 71,
+          delivery: { score: 68 },
+          argument: { score: 74 },
+          slides: { score: 71 },
+        },
+      });
+    }
+
+    // Fetch feedback from database (if Supabase is configured)
     const { data, error } = await supabase
       .from('recordings')
       .select('*')
