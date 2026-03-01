@@ -1,355 +1,390 @@
 # Pitch Coach MVP
 
-AI-powered pitch coaching platform that analyzes delivery, argument structure, and slide design to provide actionable feedback.
+**AI-powered pitch coaching with real-time feedback and detailed analysis.**
 
-## Overview
+A web app that helps entrepreneurs practice and improve their pitches through instant feedback on delivery, argument structure, and slide design. Based on 47 peer-reviewed studies in communication science and psychology.
 
-**Pitch Coach MVP** is a web application that helps users improve their pitch presentations through AI-powered analysis. Users record their pitch using their webcam and microphone, and the app provides detailed coaching feedback based on:
+## 🎯 What It Does
 
-- **Delivery**: Eye contact, gestures, pace, filler words, vocal variation
-- **Argument**: Thesis clarity, logical flow, evidence quality, persuasiveness
-- **Slides**: Design, readability, visual alignment with speech
+**4-Step Loop:**
 
-The app is built with **Next.js 16**, **React 19**, **Tailwind CSS**, and integrates with **MediaPipe**, **Deepgram**, and **Claude API** for analysis.
+1. **Setup** (2 min): Upload PowerPoint deck, confirm slides
+2. **Record** (15-20 min): Present to your webcam with real-time pace feedback
+3. **Analysis** (1-2 min): AI analyzes delivery, argument, and slides
+4. **Feedback** (3-5 min): Get detailed coaching on what went well and what to improve
 
-## Tech Stack
+Users can re-record immediately with the same deck to iterate and improve their score.
 
-### Frontend
-- **Next.js 16** - React framework with App Router
-- **React 19** - UI library
-- **Tailwind CSS** - Styling
-- **Zustand** - State management
-- **Framer Motion** - Animations (optional)
+## 🏗️ Architecture
 
-### Backend
-- **Next.js API Routes** - Backend services
-- **Supabase** - File storage and authentication
+**Frontend:**
+- **Framework:** Next.js 16 + React 19
+- **Styling:** Tailwind CSS + shadcn/ui
+- **State:** Zustand (minimal config, session-based)
+- **Video Capture:** WebRTC (MediaRecorder API)
 
-### Analysis
-- **MediaPipe** - Pose/hand/face detection for delivery analysis
-- **Deepgram API** - Speech-to-text and audio metrics
-- **Claude API** - Argument analysis and feedback generation
-- **pytesseract** - Slide OCR (future: Node.js alternative)
+**Backend:**
+- **API Routes:** Next.js API routes
+- **Storage:** Supabase (optional for MVP) or local file storage
+- **Database:** Supabase PostgreSQL (optional, can use mock data)
 
-## Project Structure
+**Analysis Pipeline** (Week 2 implementation):
+- **MediaPipe:** Pose/hand/face detection (eye contact, gestures, pace)
+- **Deepgram API:** Speech-to-text + audio metrics (filler words, pace, tone)
+- **pytesseract:** Slide OCR (text readability, density)
+- **Claude API:** Argument analysis (thesis clarity, logic, persuasion)
+
+## 🚀 Quick Start
+
+### 1. Clone & Install
+
+```bash
+git clone https://github.com/wyattborbi/pitch-coach-mvp.git
+cd pitch-coach-mvp
+npm install --legacy-peer-deps
+```
+
+### 2. Environment Variables
+
+Create `.env.local`:
+
+```
+# Optional: Supabase (for production)
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_key
+
+# Optional: Analysis APIs (Week 2+)
+DEEPGRAM_API_KEY=your_deepgram_key
+OPENAI_API_KEY=your_openai_key  # For Claude analysis
+```
+
+### 3. Run Locally
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+### 4. Build for Production
+
+```bash
+npm run build
+npm start
+```
+
+## 📂 Project Structure
 
 ```
 pitch-coach-mvp/
 ├── app/
-│   ├── layout.tsx           # Root layout
-│   ├── page.tsx             # Main page (router)
-│   ├── api/                 # API routes
-│   │   ├── upload/          # Video upload endpoint
-│   │   ├── analyze/         # Analysis pipeline
-│   │   └── slides/          # Slide extraction
-│   ├── dashboard/           # Dashboard pages
-│   ├── record/              # Recording flow
-│   └── feedback/            # Feedback display
+│   ├── page.tsx                 # Dashboard / Upload PPTX
+│   ├── setup/preview/page.tsx   # Slide preview
+│   ├── record/page.tsx          # Recording booth
+│   ├── analysis/page.tsx        # Analysis progress
+│   ├── feedback/page.tsx        # Coaching feedback
+│   ├── api/
+│   │   ├── upload/route.ts      # PPTX upload endpoint
+│   │   ├── slides/route.ts      # Slide extraction
+│   │   ├── video/upload/route.ts # Video upload
+│   │   └── analyze/route.ts     # Analysis job queue (stub)
+│   └── layout.tsx
 ├── components/
-│   ├── pages/
-│   │   ├── DashboardPage.tsx
-│   │   ├── SlidesPreviewPage.tsx
-│   │   ├── RecordingPage.tsx
-│   │   ├── AnalysisPage.tsx
-│   │   └── FeedbackPage.tsx
-│   ├── RecordingBooth.tsx
+│   ├── Header.tsx
 │   ├── FileUploadZone.tsx
-│   └── ui/                  # Reusable UI components
-├── lib/
-│   ├── store.ts             # Zustand state management
-│   └── utils.ts             # Helper functions
-├── hooks/
-│   └── useRecording.ts      # Recording hook
-└── public/
-    └── uploads/             # Temporary video storage
+│   ├── RecordingBooth.tsx       # Main recording interface
+│   └── FeedbackSection.tsx      # Expandable feedback cards
+├── public/
+│   └── uploads/                 # Temporary file storage
+├── package.json
+└── README.md
 ```
 
-## Getting Started
+## 🎬 User Flows
 
-### Prerequisites
+### First-Time User (30 minutes total)
 
-- Node.js 18+
-- npm or yarn
-- Supabase account (for file storage)
-- Deepgram API key
-- OpenAI/Claude API key
+1. **Upload Deck** (1 min)
+   - Drag-drop PPTX
+   - System validates and extracts slides
+   
+2. **Preview Slides** (1 min)
+   - View all slide thumbnails
+   - Confirm presentation is ready
+   
+3. **Record Pitch** (15-20 min)
+   - Full-screen booth: camera feed (left 70%), slides (right 30%)
+   - Real-time metrics: elapsed time, pace, current slide
+   - Controls: Next Slide, Pause, Finish
+   
+4. **Analysis** (1-2 min)
+   - Progress indicators for 3 analyses:
+     - Delivery (MediaPipe)
+     - Argument (Deepgram + Claude)
+     - Slides (OCR)
+   
+5. **View Feedback** (3-5 min)
+   - Overall score (0-100)
+   - 3 expandable sections (Delivery, Argument, Slides)
+   - Each section shows:
+     - What went well ✓
+     - What needs work ⚠
+     - Specific action items 1️⃣2️⃣3️⃣
+   
+6. **Next Steps**
+   - **Re-record:** Same PPTX, fresh attempt
+   - **Edit Slides:** Improve PPTX, then re-record
+   - **Watch:** Review recording with timestamps
+   - **Share:** Send feedback scorecard to others
 
-### Installation
+## 📊 Feedback Categories
 
-1. **Clone the repository**
-```bash
-cd pitch-coach-mvp
-npm install
-```
+### 🎬 DELIVERY (Behavioral Analysis)
+- Eye contact percentage
+- Hand gesture count
+- Speech pace (words/second)
+- Filler words (um, like, uh)
+- Intonation variation
+- Facial expressions
+- Body movement
 
-2. **Set up environment variables**
+**Science:** Nonverbal signals predict pitch outcomes with 87% accuracy (Pentland, MIT). Delivery accounts for 40-50% of funding success.
 
-Create a `.env.local` file in the project root:
+### 💡 ARGUMENT (Logical Analysis)
+- Thesis clarity & reinforcement
+- Problem → Solution → Evidence structure
+- Logical flow (Toulmin model)
+- Evidence quality & quantity
+- Counterargument handling
+- Emotional connection / narrative transportation
 
-```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+**Science:** Argument structure produces d = 0.5-0.8 attitude change (ELM theory). Clear arguments predict funding decisions.
 
-# Deepgram
-DEEPGRAM_API_KEY=your_deepgram_api_key
+### 🎨 SLIDES (Visual Analysis)
+- Font readability (24pt+ min)
+- Color contrast (4.5:1 ratio)
+- Information density (4±1 items per slide)
+- Visual balance (images vs. text)
+- Alignment with speech timing
+- Consistent branding
 
-# OpenAI/Claude
-OPENAI_API_KEY=your_openai_api_key
+**Science:** Cognitive load reduction improves comprehension by d = 0.60-0.80 (Sweller). Multimedia learning effect: d = 1.67.
 
-# Or if using Claude directly:
-ANTHROPIC_API_KEY=your_anthropic_api_key
+## 🔄 Feedback Mechanism
 
-# AWS S3 (optional, for production)
-AWS_ACCESS_KEY_ID=your_aws_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret
-AWS_S3_BUCKET=your_bucket_name
-```
+**Why it works (research-backed):**
+- **Specificity:** "8 bullet points on slide 3 → reduce to 4" vs. "simplify"
+- **Actionability:** Concrete steps users can take
+- **Timeliness:** Immediate feedback after recording
+- **Task-level:** Focus on skills, not personality
+- **Effect size:** d = 0.79-0.90 (Hattie & Timperley, 2007) — among top 5 interventions in education
 
-3. **Run the development server**
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-### Development
-
-```bash
-# Run dev server with hot reload
-npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
-
-# Run tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-```
-
-## Features
+## 📈 Sprint Timeline (4 weeks)
 
 ### Week 1: Core Recording + UI ✅
-- [x] Dashboard page (PPTX upload)
-- [x] Slides preview page
-- [x] Recording page with webcam + audio capture
-- [x] Real-time timer and slide navigation
-- [x] Video chunk collection
+- [x] Setup page (PPTX upload, validation)
+- [x] Slide preview
+- [x] Recording booth (camera + slides + timer + real-time pace)
+- [x] Video capture & local storage
+- [ ] Deploy stub to Vercel
 
-### Week 2: Analysis Pipeline 🚧
-- [ ] MediaPipe integration (eye contact, gestures)
-- [ ] Deepgram transcription (speech metrics)
-- [ ] pytesseract slide analysis
-- [ ] Analysis progress tracking
+### Week 2: Analysis Pipeline 🔄
+- [ ] MediaPipe integration (pose/hand/face detection)
+- [ ] Deepgram transcription API
+- [ ] pytesseract slide OCR
+- [ ] Claude argument analysis
+- [ ] Placeholder feedback generation
+- [ ] Mock data for testing
 
-### Week 3: Feedback Report 📋
-- [ ] Scoring system (0-100 for each dimension)
-- [ ] Feedback card expansion UI
-- [ ] Action items with timestamps
-- [ ] Video playback with annotations
+### Week 3: Feedback Report + Polish 📋
+- [ ] Scoring system (0-100 overall + 3 sub-scores)
+- [ ] Expandable feedback cards
+- [ ] Timestamp references in feedback
+- [ ] Video playback with annotations (optional)
 - [ ] Re-record flow
+- [ ] Dashboard (list of past recordings)
 
-### Week 4: Testing & Deployment 🚀
-- [ ] End-to-end testing
-- [ ] Deploy to Vercel staging
-- [ ] User feedback iteration
-- [ ] Bug fixes and refinements
+### Week 4: Testing + Deployment 🚀
+- [ ] End-to-end testing (Jest + React Testing Library)
+- [ ] Performance optimization
+- [ ] Deploy to Vercel
+- [ ] Collect Wyatt's feedback
+- [ ] Iterate on scoring & feedback generation
 
-## User Flow
+## 🔌 API Endpoints (MVP)
 
-1. **Setup** (2 min)
-   - User uploads PPTX file
-   - System extracts and previews slides
+### `POST /api/upload`
+Upload PPTX file. Returns session ID for tracking.
 
-2. **Record** (15-20 min)
-   - User sees live camera feed + slide deck
-   - Real-time pace feedback shown
-   - Click "Next Slide" or auto-advance available
-
-3. **Analysis** (10 sec - 2 min)
-   - Video saved to Supabase
-   - MediaPipe processes video frames
-   - Deepgram transcribes audio
-   - Claude analyzes argument structure
-   - Progress UI shows sub-steps
-
-4. **Feedback** (3-5 min)
-   - User sees overall score (0-100)
-   - Three sections: Delivery, Argument, Slides (expandable)
-   - Each section has "What Went Well" + "What Needs Work"
-   - Action items with specific suggestions
-   - Options to re-record, watch video, share results
-
-## API Endpoints
-
-### `/api/upload`
-Upload recorded video file.
-
-**Request:**
-```
-POST /api/upload
-Content-Type: multipart/form-data
-
-- file: WebM video blob
-- duration: number (seconds)
-- slideCount: number
-```
-
-**Response:**
 ```json
+// Response
 {
-  "id": "recording-uuid",
-  "url": "s3://bucket/path/to/video.webm",
-  "status": "uploaded"
+  "sessionId": "abc123",
+  "fileName": "pitch-deck.pptx",
+  "fileSize": 2048576
 }
 ```
 
-### `/api/analyze`
-Start analysis pipeline for a recording.
+### `GET /api/slides?sessionId=abc123`
+Fetch slide thumbnails for preview.
 
-**Request:**
-```
-POST /api/analyze
-Content-Type: application/json
-
+```json
+// Response
 {
-  "recordingId": "uuid",
-  "videoUrl": "s3://...",
-  "audioUrl": "s3://..." 
+  "sessionId": "abc123",
+  "slides": [
+    { "id": 1, "thumbnailUrl": "..." },
+    { "id": 2, "thumbnailUrl": "..." }
+  ]
 }
 ```
 
-**Response:**
+### `POST /api/video/upload`
+Upload recorded video. Triggers analysis job.
+
 ```json
+// Request
 {
-  "jobId": "analysis-uuid",
-  "status": "queued",
+  "video": <File>,
+  "sessionId": "abc123",
+  "duration": 272
+}
+
+// Response
+{
+  "videoId": "vid-xyz",
+  "sessionId": "abc123",
+  "duration": 272
+}
+```
+
+### `POST /api/analyze`
+Trigger analysis (stub — will queue to Python workers in Week 2).
+
+```json
+// Response
+{
+  "analysisId": "analysis-xyz",
+  "status": "processing",
   "estimatedTime": 120
 }
 ```
 
-### `/api/feedback`
-Retrieve analysis results.
+## 🛠️ Development
 
-**Request:**
-```
-GET /api/feedback?recordingId=uuid
-```
-
-**Response:**
-```json
-{
-  "recordingId": "uuid",
-  "overall": 71,
-  "delivery": {
-    "score": 68,
-    "metrics": {
-      "eyeContact": 92,
-      "pace": 2.1,
-      "fillerWords": 10,
-      "gestures": 3
-    },
-    "feedback": [...]
-  },
-  "argument": {...},
-  "slides": {...}
-}
-```
-
-## Scientific Foundation
-
-This product is built on 47 peer-reviewed research citations covering:
-
-- **Persuasion Psychology**: Elaboration Likelihood Model, argument structure effects
-- **Neuroscience**: Intonation, pitch variation, prosody effects on perception
-- **Body Language**: Eye contact, gestures, nonverbal signals (Pentland's 87% prediction)
-- **Pacing & Cognitive Load**: Optimal speech rate (140-160 wpm), working memory constraints
-- **Visual Design**: Cognitive Load Theory, information density, multimedia learning
-- **Learning Science**: Deliberate practice, self-efficacy, feedback effectiveness
-- **AI Coaching**: Research showing AI coaching rivals human coaching for narrow skills
-
-See `pitch-coach-scientific-validation.md` for full citations.
-
-## Performance Metrics
-
-**MVP Success Criteria:**
-- 70%+ completion rate (Setup → Feedback in one session)
-- Median 25 minutes total time
-- 80%+ users rate feedback as actionable
-- 40%+ re-record within 7 days
-- <5% error rate during recording/analysis
-
-## Deployment
-
-### Staging (Week 4)
+### Run Dev Server
 ```bash
-npm run build
-vercel deploy --prod
+npm run dev
+# Open http://localhost:3000
 ```
 
-### Production (Future)
-- Auto-deploy on main branch merge
-- CDN for video delivery
-- Scale analysis workers horizontally
-- Database backups
-
-## Testing
-
-### Unit Tests
+### TypeScript
 ```bash
-npm run test
+npm run build  # Type-check + compile
 ```
 
-### E2E Tests (Playwright - Week 4)
+### Testing (Week 4)
 ```bash
-npm run test:e2e
+npm test       # Jest + React Testing Library
 ```
 
-## Security & Privacy
+## 📦 Dependencies
 
-- ✅ HTTPS only
-- ✅ Video files encrypted in transit and at rest
-- ✅ User data not shared with 3rd parties (except analysis APIs)
-- ✅ Video files auto-deleted after 30 days
-- ✅ No external cookies or tracking
+**Core:**
+- `next@16.1.6` - Full-stack framework
+- `react@19.2.3` - UI library
+- `tailwindcss@4` - Styling
+- `zustand@5.0.11` - State management
 
-## Future Enhancements (v2+)
+**Video/Media:**
+- `MediaRecorder API` (built-in browser API)
+- `getUserMedia` (built-in browser API)
 
-- [ ] Mobile app (iOS/Android)
-- [ ] Real-time AI feedback during recording
-- [ ] Multiple difficulty levels (Standard, Mentor, Judge)
-- [ ] Audience persona selection (VCs, Executives, Tech leads)
-- [ ] Team features (shared decks, multiple presenters)
-- [ ] Transcription export
-- [ ] Comparison dashboard (track improvement over 5+ pitches)
-- [ ] 3rd-party integrations (Slack, Salesforce)
-- [ ] AI-powered slide editing suggestions
+**Future (Week 2+):**
+- `@deepgram/sdk` - Speech transcription
+- `mediapipe` - Pose/hand/face detection
+- `pytesseract` (Python) - Slide OCR
+- `openai` (via Claude) - Argument analysis
+- `@supabase/supabase-js` - Database (optional for MVP)
 
-## Contributing
+## 🚀 Deployment
 
-1. Create a feature branch: `git checkout -b feature/my-feature`
-2. Make changes and test: `npm run test`
-3. Submit a pull request
+### Vercel (Recommended)
 
-## License
+```bash
+# Install Vercel CLI
+npm i -g vercel
 
-MIT
+# Deploy
+vercel
 
-## Contact & Support
+# Or with env vars:
+vercel env add DEEPGRAM_API_KEY
+vercel deploy
+```
 
-- **Questions?** Email: support@pitchcoach.ai
-- **Bugs?** Open an issue on GitHub
-- **Feedback?** Fill out our feedback form
+### Environment Variables (Vercel)
+```
+NEXT_PUBLIC_SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+DEEPGRAM_API_KEY (Week 2)
+OPENAI_API_KEY (Week 2)
+```
+
+## 🔐 Privacy & Storage
+
+**MVP (Local):**
+- Videos stored in `/public/uploads/` (temporary, for local testing)
+- Deleted after analysis
+
+**Production (Supabase):**
+- Videos uploaded to Supabase Storage (signed URLs, 30-day expiry)
+- Metadata in PostgreSQL
+- User auth via Supabase
+
+## 🎓 Scientific Foundation
+
+This MVP is built on 47 peer-reviewed studies validating:
+- **Delivery metrics:** Eye contact, pace, intonation, gestures (Pentland, Clarke, Chen)
+- **Argument analysis:** Thesis clarity, logic flow, evidence quality (Petty & Cacioppo, O'Keefe)
+- **Visual design:** Cognitive load, readability, multimedia learning (Sweller, Mayer, Cowan)
+- **Feedback mechanism:** Specific, task-level feedback effect size d = 0.79-0.90 (Hattie & Timperley)
+- **Learning:** Deliberate practice with feedback accounts for 26% of performance variance (Ericsson, Macnamara)
+
+**See:** `pitch-coach-scientific-validation.md` for full bibliography.
+
+## 🐛 Known Limitations (MVP)
+
+1. **MediaPipe on browser:** Real-time eye contact detection accuracy depends on lighting. May need server-side processing.
+2. **No mobile:** Web-only for now. Responsive design but not native apps.
+3. **Mock data:** Feedback uses placeholder ML models. Real analysis comes Week 2.
+4. **No slide editing:** Users must edit PPTX in PowerPoint/Google Slides, then re-upload.
+5. **No transcription export:** Video playback only, no downloadable transcript.
+
+## 🔮 Future (v2 and beyond)
+
+- [ ] Mobile app (React Native)
+- [ ] Multiple difficulty levels (Beginner/Intermediate/Expert)
+- [ ] Audience personas (VC/Corporate/Tech)
+- [ ] Team collaboration (shared decks, multi-presenter)
+- [ ] Trend dashboard (score improvement over 5+ recordings)
+- [ ] 3rd-party integrations (Slack, Salesforce, HubSpot)
+- [ ] AI-generated tips (contextual coaching)
+- [ ] Live pitch simulation (simulated Q&A)
+
+## 📞 Support
+
+**Questions?** 
+- Check `ARCHITECTURE.md` for technical deep-dive
+- See `pitch-coach-scientific-validation.md` for research citations
+- Open an issue on GitHub
+
+## 📄 License
+
+MIT (for now, subject to change)
 
 ---
 
-**Built with ❤️ for pitch coaches and entrepreneurs worldwide.**
-
-*Deadline: 4 weeks to MVP on Vercel. Let's ship it.* 🚀
+**Built for:** Wyatt Borbi  
+**Status:** MVP (Week 1 complete, Weeks 2-4 in progress)  
+**Next Milestone:** Vercel staging deployment (end of Week 1)
