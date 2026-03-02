@@ -13,32 +13,44 @@ const supabase = supabaseUrl && supabaseKey
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
+    const file = formData.get('file') as File;
     const videoFile = formData.get('video') as File;
     const duration = formData.get('duration') as string;
     const slideCount = formData.get('slideCount') as string;
 
-    if (!videoFile) {
+    // Accept either PPTX (file) or video (videoFile)
+    const uploadFile = file || videoFile;
+
+    if (!uploadFile) {
       return NextResponse.json(
-        { error: 'No video file provided' },
+        { error: 'No file provided' },
         { status: 400 }
       );
     }
 
-    // Generate unique recording ID
-    const recordingId = uuidv4();
+    // Generate unique session ID
+    const sessionId = uuidv4();
     const timestamp = new Date().toISOString();
+
+    // Determine file type and content type
+    const isPPTX = uploadFile.name.endsWith('.pptx');
+    const contentType = isPPTX 
+      ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+      : 'video/webm';
+    const folder = isPPTX ? 'presentations' : 'recordings';
+    const extension = isPPTX ? 'pptx' : 'webm';
 
     // If Supabase is configured, upload; otherwise return mock response
     if (supabase) {
-      const filename = `${recordingId}.webm`;
-      const path = `recordings/${timestamp.split('T')[0]}/${filename}`;
+      const filename = `${sessionId}.${extension}`;
+      const path = `${folder}/${timestamp.split('T')[0]}/${filename}`;
 
       // Upload to Supabase Storage
-      const arrayBuffer = await videoFile.arrayBuffer();
+      const arrayBuffer = await uploadFile.arrayBuffer();
       const { data, error: uploadError } = await supabase.storage
         .from('pitch-coach-videos')
         .upload(path, Buffer.from(arrayBuffer), {
-          contentType: 'video/webm',
+          contentType: contentType,
           cacheControl: '3600',
         });
 
@@ -63,30 +75,15 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Store metadata in database
-      const { error: dbError } = await supabase.from('recordings').insert([
-        {
-          id: recordingId,
-          created_at: timestamp,
-          duration: parseInt(duration),
-          slide_count: parseInt(slideCount),
-          video_url: signedData.signedUrl,
-          storage_path: data.path,
-          status: 'uploaded',
-        },
-      ]);
-
-      if (dbError) {
-        console.error('Database error:', dbError);
-        // Still return success since video is uploaded
-      }
-
+      // For PPTX, we don't store metadata the same way
+      // Just return success
       return NextResponse.json(
         {
-          id: recordingId,
-          url: signedData.signedUrl,
+          sessionId: sessionId,
+          fileName: uploadFile.name,
+          fileUrl: signedData.signedUrl,
           status: 'uploaded',
-          duration: parseInt(duration),
+          isPPTX: isPPTX,
         },
         { status: 201 }
       );
@@ -97,10 +94,11 @@ export async function POST(request: NextRequest) {
       );
       return NextResponse.json(
         {
-          id: recordingId,
-          url: `blob:mock://${recordingId}`,
+          sessionId: sessionId,
+          fileName: uploadFile.name,
+          fileUrl: `blob:mock://${sessionId}`,
           status: 'uploaded',
-          duration: parseInt(duration),
+          isPPTX: isPPTX,
           mode: 'development',
         },
         { status: 201 }

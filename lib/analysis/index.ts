@@ -31,13 +31,15 @@ export async function runCompleteAnalysis(
   audioUrl: string,
   slideUrls: string[]
 ): Promise<AnalysisResults> {
-  // Run all 4 engines in parallel
-  const [mediapipe, deepgram, slides, claude] = await Promise.all([
+  // Run video and audio analysis in parallel, then run Claude with transcript
+  const [mediapipe, deepgram, slides] = await Promise.all([
     analyzeVideoWithMediaPipe(videoUrl),
     analyzeAudioWithDeepgram(audioUrl),
     analyzeSlides(slideUrls),
-    analyzeArgumentStructure(""), // Transcript will come from deepgram
   ]);
+
+  // Now run Claude with the transcript from Deepgram
+  const claude = await analyzeArgumentStructure(deepgram.transcript);
 
   // Score delivery (70% MediaPipe eye contact/gestures, 30% Deepgram pacing)
   const deliveryScore = Math.round(

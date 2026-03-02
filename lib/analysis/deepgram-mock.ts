@@ -1,8 +1,10 @@
 /**
- * Deepgram Mock Analysis Engine
+ * Deepgram Real API Analysis Engine
  * Analyzes audio for: transcription, pacing, filler words, confidence
  * Returns: transcript, words/min, filler word count, confidence variation
  */
+
+import { createClient } from "@deepgram/sdk";
 
 export interface DeepgramAnalysisResult {
   transcript: string;
@@ -18,46 +20,123 @@ export interface DeepgramAnalysisResult {
   silenceDurations: number[]; // seconds of silence
 }
 
+const FILLER_WORDS = ["um", "uh", "like", "so", "you know", "basically"];
+
 export async function analyzeAudioWithDeepgram(
   audioUrl: string
 ): Promise<DeepgramAnalysisResult> {
-  // Mock implementation - in production this would:
-  // 1. Call Deepgram API with audio URL
-  // 2. Get high-confidence transcription
-  // 3. Extract filler word locations
-  // 4. Calculate confidence variation across transcript
-  // 5. Measure speaking rate and pauses
+  const apiKey = process.env.DEEPGRAM_API_KEY;
+  if (!apiKey) {
+    throw new Error("DEEPGRAM_API_KEY not configured");
+  }
 
-  // Simulate processing time
-  await new Promise((resolve) => setTimeout(resolve, 800));
+  const deepgram = createClient(apiKey);
 
-  // Mock transcript with realistic structure
-  const transcript = `Good morning everyone. Um, thanks for being here today. 
-  So, we're solving a problem that affects about 40% of companies. Like, 
-  the current solutions are really expensive and inflexible. Our approach is different.
-  We built a platform that's three times faster than alternatives. 
-  Since launching six months ago, we've um, helped over 500 companies save millions.
-  The market for this is growing like 40% year-over-year. 
-  We're raising 5 million to scale our team and expand internationally.
-  Thank you.`;
+  try {
+    // Request transcription with word confidence
+    const response = await deepgram.listen.prerecorded.transcribeUrl(
+      { url: audioUrl },
+      {
+        model: "nova-2",
+        smart_format: true,
+        utterances: true, // Detects sentence boundaries
+        punctuation: true,
+        paragraphs: true,
+        language: "en",
+      }
+    );
 
-  const fillerWords = [
-    { word: "um", count: 3, timestamps: [3, 47, 152] },
-    { word: "like", count: 2, timestamps: [12, 89] },
-  ];
+    if (!response?.result?.results?.channels?.[0]?.alternatives?.[0]) {
+      throw new Error("Invalid Deepgram response structure");
+    }
 
-  const wordCount = transcript.split(/\s+/).length;
-  const durationSeconds = 272; // 4:32
-  const durationMinutes = durationSeconds / 60;
-  const wordsPerMinute = Math.round(wordCount / durationMinutes);
+    const transcript = response.result.results.channels[0].alternatives[0].transcript || "";
+    const words = response.result.results.channels[0].alternatives[0].words || [];
 
-  return {
-    transcript,
-    wordsPerMinute, // ~142 wpm
-    fillerWords, // 3 "um" + 2 "like" = 5 total
-    confidenceVariation: 0.78, // Confidence varies from high to moderate
-    sentenceCount: 11,
-    averageWordLength: 4.8,
-    silenceDurations: [0.5, 0.8, 1.2, 0.4, 0.6], // ~3.5 seconds of pauses
-  };
+    // Calculate words per minute
+    const firstWord = words[0];
+    const lastWord = words[words.length - 1];
+    const durationSeconds = (lastWord?.end || 0) - (firstWord?.start || 0);
+    const durationMinutes = Math.max(durationSeconds / 60, 0.1);
+    const wordCount = words.length;
+    const wordsPerMinute = Math.round(wordCount / durationMinutes);
+
+    // Extract filler words
+    const fillerMap = new Map<
+      string,
+      { count: number; timestamps: number[] }
+    >();
+    words.forEach((word) => {
+      const lowercaseWord = word.punctuated_word
+        ?.toLowerCase()
+        .replace(/[.,!?;:]/g, "");
+      if (lowercaseWord && FILLER_WORDS.includes(lowercaseWord)) {
+        const existing = fillerMap.get(lowercaseWord) || {
+          count: 0,
+          timestamps: [],
+        };
+        existing.count++;
+        existing.timestamps.push(word.start || 0);
+        fillerMap.set(lowercaseWord, existing);
+      }
+    });
+
+    const fillerWords = Array.from(fillerMap.entries()).map(([word, data]) => ({
+      word,
+      ...data,
+    }));
+
+    // Calculate confidence variation
+    const confidences = words
+      .map((w) => w.confidence || 0)
+      .filter((c) => c > 0);
+    const avgConfidence =
+      confidences.length > 0
+        ? confidences.reduce((a, b) => a + b) / confidences.length
+        : 0.85;
+    const variance =
+      confidences.length > 0
+        ? Math.sqrt(
+            confidences
+              .map((c) => Math.pow(c - avgConfidence, 2))
+              .reduce((a, b) => a + b) / confidences.length
+          )
+        : 0;
+    const confidenceVariation = Math.min(variance, 0.5) / 0.5; // Normalize 0-1
+
+    // Detect sentence count
+    const sentenceCount = transcript.split(/[.!?]+/).filter((s) => s.trim())
+      .length;
+
+    // Calculate average word length
+    const allWords = transcript
+      .split(/\s+/)
+      .map((w) => w.replace(/[.,!?;:]/g, ""));
+    const averageWordLength =
+      allWords.length > 0
+        ? allWords.reduce((sum, w) => sum + w.length, 0) / allWords.length
+        : 0;
+
+    // Detect silence durations (gaps between words)
+    const silenceDurations: number[] = [];
+    for (let i = 0; i < words.length - 1; i++) {
+      const gap = (words[i + 1]?.start || 0) - (words[i]?.end || 0);
+      if (gap > 0.3) {
+        silenceDurations.push(gap);
+      }
+    }
+
+    return {
+      transcript,
+      wordsPerMinute,
+      fillerWords,
+      confidenceVariation,
+      sentenceCount,
+      averageWordLength,
+      silenceDurations,
+    };
+  } catch (error) {
+    console.error("Deepgram API error:", error);
+    throw error;
+  }
 }
